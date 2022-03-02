@@ -2,9 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hand_signature/signature.dart';
 import 'package:hands_in_action/src/widget/hands_widget.dart';
-
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({Key? key}) : super(key: key);
@@ -23,105 +23,106 @@ ValueNotifier<String?> svg = ValueNotifier<String?>(null);
 ValueNotifier<ByteData?> rawImage = ValueNotifier<ByteData?>(null);
 
 ValueNotifier<ByteData?> rawImageFit = ValueNotifier<ByteData?>(null);
+final _globalKey = GlobalKey();
 
 class _MyHomePageState extends State<MyHomePage> {
-    bool get scrollTest => false;
+  @override
+void initState(){
+  super.initState();
+  SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeRight,
+      DeviceOrientation.landscapeLeft,
+  ]);
+}
+@override
+dispose(){
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeRight,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  super.dispose();
+}
+  bool get scrollTest => false;
+  Uint8List? pngBytes;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: Colors.orange,
-        body: scrollTest
-            ? ScrollTest()
-            : SafeArea(
-                child: Stack(
-                  children: <Widget>[
-                    Column(
-                      children: <Widget>[
-                        Expanded(
-                          child: Center(
-                            child: AspectRatio(
-                              aspectRatio: 2.0,
-                              child: Stack(
-                                children: <Widget>[
-                                  Container(
-                                    constraints: BoxConstraints.expand(),
-                                    color: Colors.white,
-                                    child: HandSignaturePainterView(
-                                      control: control,
-                                      type: SignatureDrawType.shape,
-                                    ),
+      key: _globalKey,
+      appBar: AppBar(
+        title: Text('Firma del cliente'),
+      ),
+      backgroundColor: Colors.orange,
+      body: scrollTest
+          ? ScrollTest()
+          : SafeArea(
+              child: Stack(
+                children: <Widget>[
+                  Column(
+                    children: <Widget>[
+                      Expanded(
+                        child: Center(
+                          child: AspectRatio(
+                            aspectRatio: 2.0,
+                            child: Stack(
+                              children: <Widget>[
+                                Container(
+                                  constraints: BoxConstraints.expand(),
+                                  color: Colors.white,
+                                  child: HandSignaturePainterView(
+                                    control: control,
+                                    type: SignatureDrawType.shape,
                                   ),
-                                  CustomPaint(
-                                    painter: DebugSignaturePainterCP(
-                                      control: control,
-                                      cp: false,
-                                      cpStart: false,
-                                      cpEnd: false,
-                                    ),
+                                ),
+                                CustomPaint(
+                                  painter: DebugSignaturePainterCP(
+                                    control: control,
+                                    cp: false,
+                                    cpStart: false,
+                                    cpEnd: false,
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                        Row(
-                          children: <Widget>[
-                            CupertinoButton(
-                              onPressed: () {
-                                control.clear();
-                                svg.value = null;
-                                rawImage.value = null;
-                                rawImageFit.value = null;
-                              },
-                              child: Text('clear'),
-                            ),
-                            CupertinoButton(
-                              onPressed: () async {
-                                svg.value = control.toSvg(
-                                  color: Colors.blueGrey,
-                                  size: 2.0,
-                                  maxSize: 15.0,
-                                  type: SignatureDrawType.shape,
-                                );
-
-                                rawImage.value = await control.toImage(
-                                  color: Colors.blueAccent,
-                                  background: Colors.greenAccent,
-                                  fit: false,
-                                );
-
-                                rawImageFit.value = await control.toImage(
-                                  color: Colors.blueAccent,
-                                  background: Colors.greenAccent,
-                                );
-                              },
-                              child: Text('export'),
-                            ),
-                          ],
-                        ),
-                        SizedBox(
-                          height: 16.0,
-                        ),
-                      ],
-                    ),
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          _buildImageView(),
-                          _buildScaledImageView(),
-                          _buildSvgView(),
-                        ],
                       ),
-                    ),
-                  ],
-                ),
+                      Expanded(
+                          child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Column(
+                            children: [
+                              ElevatedButton(
+                                onPressed: () {
+                                  //        onClickCreateClient();
+                                },
+                                child: Text('Registrar cobro'),
+                              ),
+                              CupertinoButton(
+                                onPressed: () {
+                                  control.clear();
+                                  svg.value = null;
+                                  rawImage.value = null;
+                                  rawImageFit.value = null;
+                                },
+                                child: Text('clear'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )),
+                    ],
+                  ),
+                ],
               ),
-      );
+            ),
+    );
   }
 
-   Widget _buildImageView() => Container(
+  Widget _buildImageView() => Container(
         width: 192.0,
         height: 96.0,
         decoration: BoxDecoration(
@@ -147,7 +148,7 @@ class _MyHomePageState extends State<MyHomePage> {
           },
         ),
       );
-       Widget _buildScaledImageView() => Container(
+  Widget _buildScaledImageView() => Container(
         width: 192.0,
         height: 96.0,
         decoration: BoxDecoration(
@@ -173,7 +174,7 @@ class _MyHomePageState extends State<MyHomePage> {
           },
         ),
       );
-       Widget _buildSvgView() => Container(
+  Widget _buildSvgView() => Container(
         width: 192.0,
         height: 96.0,
         decoration: BoxDecoration(
@@ -185,10 +186,10 @@ class _MyHomePageState extends State<MyHomePage> {
           builder: (context, data, child) {
             return HandSignatureView.svg(
               data: data,
-              padding: EdgeInsets.all(8.0),
+              padding: const EdgeInsets.all(8.0),
               placeholder: Container(
                 color: Colors.red,
-                child: Center(
+                child: const Center(
                   child: Text('not signed yet (svg)'),
                 ),
               ),
