@@ -1,10 +1,14 @@
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hand_signature/signature.dart';
 import 'package:hands_in_action/src/widget/hands_widget.dart';
+import 'dart:io';
+
+import 'package:path_provider/path_provider.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({Key? key}) : super(key: key);
@@ -13,45 +17,54 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-HandSignatureControl control = new HandSignatureControl(
+HandSignatureControl control = HandSignatureControl(
   threshold: 0.01,
   smoothRatio: 0.65,
   velocityRange: 2.0,
 );
-ValueNotifier<String?> svg = ValueNotifier<String?>(null);
+
 
 ValueNotifier<ByteData?> rawImage = ValueNotifier<ByteData?>(null);
 
-ValueNotifier<ByteData?> rawImageFit = ValueNotifier<ByteData?>(null);
-final _globalKey = GlobalKey();
+
 
 class _MyHomePageState extends State<MyHomePage> {
   @override
-void initState(){
-  super.initState();
-  SystemChrome.setPreferredOrientations([
+  void initState() {
+    super.initState();
+    SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeRight,
       DeviceOrientation.landscapeLeft,
-  ]);
-}
-@override
-dispose(){
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeRight,
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-  super.dispose();
-}
+    ]);
+  }
+
+  @override
+  dispose() {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeRight,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+    super.dispose();
+  }
+
+  late File file;
+  Future<File> _gettemporaryImgae() async {
+     
+    final tempDir = await getExternalStorageDirectory();
+    
+    File file = await File('${tempDir!.path}/firma.png').create();
+    return file;
+  }
+
   bool get scrollTest => false;
   Uint8List? pngBytes;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _globalKey,
       appBar: AppBar(
-        title: Text('Firma del cliente'),
+        title: const Text('Firma del cliente'),
       ),
       backgroundColor: Colors.orange,
       body: scrollTest
@@ -68,7 +81,7 @@ dispose(){
                             child: Stack(
                               children: <Widget>[
                                 Container(
-                                  constraints: BoxConstraints.expand(),
+                                  constraints: const BoxConstraints.expand(),
                                   color: Colors.white,
                                   child: HandSignaturePainterView(
                                     control: control,
@@ -95,18 +108,29 @@ dispose(){
                           width: double.infinity,
                           child: Column(
                             children: [
-                              ElevatedButton(
-                                onPressed: () {
-                                  //        onClickCreateClient();
-                                },
-                                child: Text('Registrar cobro'),
-                              ),
+                              FutureBuilder<File>(
+                                  future: _gettemporaryImgae(),
+                                  builder: (context, snapshot) {
+                                    if (!snapshot.hasData) {
+                                      return const Center(
+                                          child: Text('Cargando'));
+                                    }
+                                    return ElevatedButton(
+                                      onPressed: () async {
+                                        if (control.isFilled) {
+                                          file = snapshot.data!;
+                                          _buildImageView(file);
+                                        }
+                                        //        onClickCreateClient();
+                                      },
+                                      child: Text('Registrar cobro'),
+                                    );
+                                  }),
                               CupertinoButton(
                                 onPressed: () {
                                   control.clear();
-                                  svg.value = null;
                                   rawImage.value = null;
-                                  rawImageFit.value = null;
+                           
                                 },
                                 child: Text('clear'),
                               ),
@@ -122,79 +146,19 @@ dispose(){
     );
   }
 
-  Widget _buildImageView() => Container(
-        width: 192.0,
-        height: 96.0,
-        decoration: BoxDecoration(
-          border: Border.all(),
-          color: Colors.white30,
-        ),
-        child: ValueListenableBuilder<ByteData?>(
-          valueListenable: rawImage,
-          builder: (context, data, child) {
-            if (data == null) {
-              return Container(
-                color: Colors.red,
-                child: const Center(
-                  child: Text('not signed yet (png)\nscaleToFill: false'),
-                ),
-              );
-            } else {
-              return Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Image.memory(data.buffer.asUint8List()),
-              );
-            }
-          },
-        ),
+   _buildImageView(File file) async{
+
+     ByteData? image = await control.toImage(
+        width: 200,
+        height: 200,
+          background: Colors.white,
+          color: Colors.black,
+          format: ImageByteFormat.png,
       );
-  Widget _buildScaledImageView() => Container(
-        width: 192.0,
-        height: 96.0,
-        decoration: BoxDecoration(
-          border: Border.all(),
-          color: Colors.white30,
-        ),
-        child: ValueListenableBuilder<ByteData?>(
-          valueListenable: rawImageFit,
-          builder: (context, data, child) {
-            if (data == null) {
-              return Container(
-                color: Colors.red,
-                child: Center(
-                  child: Text('not signed yet (png)\nscaleToFill: true'),
-                ),
-              );
-            } else {
-              return Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Image.memory(data.buffer.asUint8List()),
-              );
-            }
-          },
-        ),
-      );
-  Widget _buildSvgView() => Container(
-        width: 192.0,
-        height: 96.0,
-        decoration: BoxDecoration(
-          border: Border.all(),
-          color: Colors.white30,
-        ),
-        child: ValueListenableBuilder<String?>(
-          valueListenable: svg,
-          builder: (context, data, child) {
-            return HandSignatureView.svg(
-              data: data,
-              padding: const EdgeInsets.all(8.0),
-              placeholder: Container(
-                color: Colors.red,
-                child: const Center(
-                  child: Text('not signed yet (svg)'),
-                ),
-              ),
-            );
-          },
-        ),
-      );
+    final buffer = image!.buffer;  
+    file.writeAsBytes(buffer.asUint8List(image.offsetInBytes, image.lengthInBytes));
+    print(file.path);
+   }
+      
+  
 }
